@@ -257,6 +257,77 @@ function showSaveIndicator() {
     }, 2000);
 }
 
+// Save queue state to localStorage and IndexedDB
+async function saveQueueState() {
+    const state = {
+        queue: songQueue,
+        currentSongIndex: currentSongIndex,
+        isPlaying: isPlaying,
+        currentTime: player.currentTime(),
+        volume: player.volume()
+    };
+
+    try {
+        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(state));
+        await saveToIndexedDB(state);
+    } catch (e) {
+        console.error('Failed to save queue state:', e);
+        showError('Could not save queue. Your browser might be in private mode or storage is full.');
+    }
+}
+
+// Load queue state from localStorage or IndexedDB
+async function loadQueueState() {
+    let state = null;
+    try {
+        const storedState = localStorage.getItem(QUEUE_STORAGE_KEY);
+        if (storedState) {
+            state = JSON.parse(storedState);
+        } else {
+            // Fallback to IndexedDB
+            state = await loadFromIndexedDB();
+        }
+    } catch (e) {
+        console.error('Failed to load queue state from localStorage:', e);
+        state = await loadFromIndexedDB(); // Try IndexedDB if localStorage fails
+    }
+
+    if (state) {
+        songQueue = state.queue || [];
+        currentSongIndex = state.currentSongIndex || -1;
+        isPlaying = state.isPlaying || false;
+
+        updateQueueCount();
+        renderQueue();
+
+        if (songQueue.length > 0 && currentSongIndex !== -1) {
+            const currentSong = songQueue[currentSongIndex];
+            currentSongInfo.innerHTML = `
+                <strong>${currentSong.title}</strong> - ${currentSong.artist}
+                <br><small>Song #${currentSong.song_number}</small>
+            `;
+
+            const youtubeId = extractYouTubeId(currentSong.video_source);
+            if (youtubeId) {
+                player.src({
+                    src: `https://www.youtube.com/watch?v=${youtubeId}`,
+                    type: 'video/youtube'
+                });
+
+                player.one('loadedmetadata', () => {
+                    player.currentTime(state.currentTime || 0);
+                    if (isPlaying) {
+                        player.play().catch(e => console.error("Autoplay failed:", e));
+                    }
+                });
+            }
+        }
+
+        player.volume(state.volume || 0.8);
+        showNotification('Queue state restored', 'info');
+    }
+}
+
 // Setup keyboard shortcuts
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
@@ -961,6 +1032,27 @@ volumeDownButton.addEventListener('click', () => {
     adjustVolume(-0.1);
 });
 
+clearQueueButton.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to clear the entire queue?')) {
+        songQueue = [];
+        currentSongIndex = -1;
+
+        player.pause();
+        player.reset();
+
+        updateQueueCount();
+        renderQueue();
+
+        // Clear from storage
+        localStorage.removeItem(QUEUE_STORAGE_KEY);
+        await clearIndexedDB();
+
+        showNotification('Queue cleared', 'success');
+        currentSongInfo.innerHTML = '<em>Select a song to begin</em>';
+        updatePlayerStatus('Ready', 'info');
+    }
+});
+
 // Video player event listeners
 player.on('ended', () => {
     console.log('Video ended, playing next song');
@@ -1113,6 +1205,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize IndexedDB first
     await initIndexedDB();
     
+    // Load previous queue state
+    await loadQueueState();
+
     // Then fetch songs
     await fetchSongList(1);
 
