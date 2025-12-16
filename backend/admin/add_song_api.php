@@ -24,14 +24,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Check for duplicate song based on video link
     $sql_check_duplicate = "SELECT id FROM songs WHERE video_source = ?";
     if ($stmt_check = $conn->prepare($sql_check_duplicate)) {
-        $stmt_check->bind_param("s", $video_link);
-        $stmt_check->execute();
-        $stmt_check->store_result();
-        if ($stmt_check->num_rows > 0) {
+        $stmt_check->execute([$video_link]);
+        if ($stmt_check->fetchColumn() > 0) {
             echo json_encode(['success' => false, 'message' => 'This song already exists in the database.']);
             exit;
         }
-        $stmt_check->close();
     }
 
     // Generate a unique song number
@@ -39,11 +36,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $song_number = rand(100000, 999999);
         $sql_check = "SELECT id FROM songs WHERE song_number = ?";
         if ($stmt_check = $conn->prepare($sql_check)) {
-            $stmt_check->bind_param("s", $song_number);
-            $stmt_check->execute();
-            $stmt_check->store_result();
-            $is_duplicate = $stmt_check->num_rows > 0;
-            $stmt_check->close();
+            $stmt_check->execute([$song_number]);
+            $is_duplicate = $stmt_check->fetchColumn() > 0;
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error (check song number).']);
             exit;
@@ -54,17 +48,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $source_type = 'link'; // Since we're adding a YouTube link
     $sql_insert = "INSERT INTO songs (song_number, title, artist, source_type, video_source) VALUES (?, ?, ?, ?, ?)";
     if ($stmt_insert = $conn->prepare($sql_insert)) {
-        $stmt_insert->bind_param("sssss", $song_number, $title, $artist, $source_type, $video_link);
-        if ($stmt_insert->execute()) {
+        if ($stmt_insert->execute([$song_number, $title, $artist, $source_type, $video_link])) {
             echo json_encode(['success' => true, 'message' => 'Song added successfully!']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to add the song.']);
         }
-        $stmt_insert->close();
     } else {
         echo json_encode(['success' => false, 'message' => 'Database error (prepare insert).']);
     }
-    $conn->close();
 } else {
     echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
 }

@@ -27,33 +27,26 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         $sql = "SELECT id, username, password FROM users WHERE username = ?";
 
         if($stmt = $conn->prepare($sql)){
-            $stmt->bind_param("s", $param_username);
-            $param_username = $username;
-            if($stmt->execute()){
-                $stmt->store_result();
-                if($stmt->num_rows == 1){
-                    $stmt->bind_result($id, $username, $hashed_password);
-                    if($stmt->fetch()){
-                        if(password_verify($password, $hashed_password)){
-                            session_start();
-                            $_SESSION["loggedin"] = true;
-                            $_SESSION["id"] = $id;
-                            $_SESSION["username"] = $username;
-                            header("location: dashboard.php");
-                        } else{
-                            $password_err = "The password you entered was not valid.";
-                        }
-                    }
+            $stmt->execute([$username]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if($row){
+                if(password_verify($password, $row['password'])){
+                    session_start();
+                    $_SESSION["loggedin"] = true;
+                    $_SESSION["id"] = $row['id'];
+                    $_SESSION["username"] = $row['username'];
+                    header("location: dashboard.php");
                 } else{
-                    $username_err = "No account found with that username.";
+                    $password_err = "The password you entered was not valid.";
                 }
             } else{
-                echo "Oops! Something went wrong. Please try again later.";
+                $username_err = "No account found with that username.";
             }
-            $stmt->close();
+        } else{
+            echo "Oops! Something went wrong. Please try again later.";
         }
     }
-    $conn->close();
 }
 ?>
 
