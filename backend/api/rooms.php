@@ -8,13 +8,8 @@ switch ($method) {
     case 'GET':
         // List all rooms
         $sql = "SELECT r.id, r.name, COUNT(ru.id) as user_count FROM rooms r LEFT JOIN room_users ru ON r.id = ru.room_id GROUP BY r.id";
-        $result = $conn->query($sql);
-        $rooms = [];
-        if ($result->num_rows > 0) {
-            while($row = $result->fetch_assoc()) {
-                $rooms[] = $row;
-            }
-        }
+        $stmt = $conn->query($sql);
+        $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($rooms);
         break;
 
@@ -32,16 +27,12 @@ switch ($method) {
             $join_code = substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, 8);
 
             $stmt = $conn->prepare("INSERT INTO rooms (name, password, join_code) VALUES (?, ?, ?)");
-            $stmt->bind_param("sss", $room_name, $password, $join_code);
 
-            if ($stmt->execute()) {
-                $room_id = $stmt->insert_id;
-                $stmt->close();
+            if ($stmt->execute([$room_name, $password, $join_code])) {
+                $room_id = $conn->lastInsertId();
 
                 $stmt = $conn->prepare("INSERT INTO room_users (room_id, username) VALUES (?, ?)");
-                $stmt->bind_param("is", $room_id, $username);
-                $stmt->execute();
-                $stmt->close();
+                $stmt->execute([$room_id, $username]);
 
                 echo json_encode(['success' => true, 'join_code' => $join_code]);
             } else {
@@ -53,18 +44,14 @@ switch ($method) {
             $username = $data->username;
 
             $stmt = $conn->prepare("SELECT id FROM rooms WHERE join_code = ?");
-            $stmt->bind_param("s", $join_code);
-            $stmt->execute();
-            $result = $stmt->get_result();
+            $stmt->execute([$join_code]);
+            $room = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($result->num_rows > 0) {
-                $room = $result->fetch_assoc();
+            if ($room) {
                 $room_id = $room['id'];
 
                 $stmt = $conn->prepare("INSERT INTO room_users (room_id, username) VALUES (?, ?)");
-                $stmt->bind_param("is", $room_id, $username);
-                $stmt->execute();
-                $stmt->close();
+                $stmt->execute([$room_id, $username]);
 
                 echo json_encode(['success' => true, 'room_id' => $room_id]);
             } else {
@@ -78,6 +65,4 @@ switch ($method) {
         header("HTTP/1.0 405 Method Not Allowed");
         break;
 }
-
-$conn->close();
 ?>
