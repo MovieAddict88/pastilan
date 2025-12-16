@@ -11,9 +11,16 @@ const DB_NAME = 'KaraokePlayerDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'queueStore';
 let db = null;
+let currentRoom = null;
 
 // DOM Elements
 const songListElement = document.getElementById('song-list');
+const roomListElement = document.getElementById('room-list');
+const createRoomBtn = document.getElementById('create-room-btn');
+const createRoomModal = document.getElementById('create-room-modal');
+const joinRoomModal = document.getElementById('join-room-modal');
+const submitCreateRoomBtn = document.getElementById('submit-create-room');
+const submitJoinRoomBtn = document.getElementById('submit-join-room');
 const queueListElement = document.getElementById('queue-list');
 const songNumberInput = document.getElementById('song-number-input');
 const songSearchInput = document.getElementById('song-search');
@@ -70,9 +77,6 @@ player.ready(async function() {
     
     // Initialize IndexedDB
     await initIndexedDB();
-    
-    // Load saved queue state after player is ready
-    await loadQueueState();
 });
 
 // Initialize IndexedDB
@@ -231,128 +235,6 @@ async function loadSongListFromDB() {
     });
 }
 
-// Save queue state to localStorage and IndexedDB
-async function saveQueueState() {
-    const state = {
-        queue: songQueue,
-        currentIndex: currentSongIndex,
-        isPlaying: isPlaying,
-        currentTime: player.currentTime() || 0,
-        volume: player.volume() || 0.8,
-        timestamp: Date.now()
-    };
-    
-    // Try localStorage first
-    try {
-        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(state));
-        console.log('Queue state saved to localStorage');
-        
-        // Also save to IndexedDB as backup
-        await saveToIndexedDB(state);
-    } catch (error) {
-        console.error('Error saving to localStorage:', error);
-        
-        // Fallback to sessionStorage
-        try {
-            sessionStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(state));
-            console.log('Queue state saved to sessionStorage');
-            
-            // Try IndexedDB as secondary backup
-            await saveToIndexedDB(state);
-        } catch (e) {
-            console.error('Session storage also failed:', e);
-            
-            // Last resort: IndexedDB only
-            await saveToIndexedDB(state);
-        }
-    }
-    
-    // Show save indicator
-    showSaveIndicator();
-}
-
-// Load queue state from localStorage or IndexedDB
-async function loadQueueState() {
-    try {
-        let state = null;
-        
-        // Try localStorage first
-        let savedState = localStorage.getItem(QUEUE_STORAGE_KEY);
-        
-        // If localStorage has no data, try sessionStorage
-        if (!savedState) {
-            savedState = sessionStorage.getItem(QUEUE_STORAGE_KEY);
-        }
-        
-        // If still no data, try IndexedDB
-        if (!savedState) {
-            const indexedDBState = await loadFromIndexedDB();
-            if (indexedDBState) {
-                state = indexedDBState;
-                console.log('Loaded from IndexedDB backup');
-            }
-        } else {
-            state = JSON.parse(savedState);
-        }
-        
-        if (!state) {
-            console.log('No saved queue state found');
-            return;
-        }
-        
-        // Restore queue (with safety checks)
-        if (state.queue && Array.isArray(state.queue)) {
-            songQueue = state.queue.filter(song => 
-                song && song.song_number && song.title && song.artist
-            );
-            currentSongIndex = Math.min(state.currentIndex || -1, songQueue.length - 1);
-            isPlaying = false; // Start paused to avoid autoplay issues
-            
-            // Update UI
-            updateQueueCount();
-            renderQueue();
-            
-            if (songQueue.length > 0) {
-                const currentSong = songQueue[0];
-                currentSongInfo.innerHTML = `
-                    <strong>${currentSong.title}</strong> - ${currentSong.artist}
-                    <br><small>Song #${currentSong.song_number} (Restored from previous session)</small>
-                    <br><button class="preview-play-btn" data-id="${currentSong.song_number}">
-                        <i class="fas fa-play"></i> Resume Playing
-                    </button>
-                `;
-                
-                const resumeBtn = currentSongInfo.querySelector('.preview-play-btn');
-                resumeBtn.addEventListener('click', () => {
-                    playCurrentSong();
-                });
-                
-                updatePlayerStatus(`Queue restored with ${songQueue.length} songs`, 'success');
-                showNotification(`Restored ${songQueue.length} songs from previous session`, 'info');
-            }
-            
-            // Restore volume
-            if (state.volume) {
-                player.volume(state.volume);
-            }
-        }
-        
-    } catch (error) {
-        console.error('Error loading queue state:', error);
-        showNotification('Could not restore previous queue', 'warning');
-    }
-}
-
-// Clear saved state from all storage methods
-async function clearSavedState() {
-    try {
-        localStorage.removeItem(QUEUE_STORAGE_KEY);
-        sessionStorage.removeItem(QUEUE_STORAGE_KEY);
-        await clearIndexedDB();
-    } catch (error) {
-        console.error('Error clearing saved state:', error);
-    }
-}
 
 // Show save indicator
 function showSaveIndicator() {
@@ -436,6 +318,130 @@ function adjustVolume(delta) {
     showNotification(`Volume: ${Math.round(newVolume * 100)}%`, 'info');
     saveQueueState(); // Save volume change
 }
+
+// Fetch and render room list
+async function fetchAndRenderRooms() {
+    try {
+        const response = await fetch('../backend/api/rooms.php');
+        const rooms = await response.json();
+        roomListElement.innerHTML = '';
+        if (rooms.length > 0) {
+            rooms.forEach(room => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="room-info">${room.name} <span>(${room.user_count} users)</span></div>
+                    <button class="control-btn join-room-btn" data-room-id="${room.id}">Join</button>
+                `;
+                li.querySelector('.join-room-btn').addEventListener('click', () => {
+                    joinRoomModal.style.display = 'block';
+                    // Store the room id for later use
+                    joinRoomModal.dataset.roomId = room.id;
+                });
+                roomListElement.appendChild(li);
+            });
+        } else {
+            roomListElement.innerHTML = '<div class="empty-message">No rooms available. Create one to get started!</div>';
+        }
+    } catch (error) {
+        console.error('Error fetching rooms:', error);
+        showError('Failed to load rooms.');
+    }
+}
+
+// Create a new room
+async function createRoom() {
+    const roomName = document.getElementById('room-name-input').value.trim();
+    const userName = document.getElementById('username-input').value.trim();
+    const password = document.getElementById('room-password-input').value.trim();
+
+    if (roomName && userName && password) {
+        try {
+            const response = await fetch('../backend/api/rooms.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'create', room_name: roomName, username: userName, password: password })
+            });
+            const data = await response.json();
+            if (data.success) {
+                showNotification(`Room "${roomName}" created! Join code: ${data.join_code}`, 'success');
+                createRoomModal.style.display = 'none';
+                fetchAndRenderRooms();
+            } else {
+                showError(data.message || 'Failed to create room.');
+            }
+        } catch (error) {
+            console.error('Error creating room:', error);
+            showError('An error occurred while creating the room.');
+        }
+    } else {
+        showError('Please fill in all fields.');
+    }
+}
+
+// Join a room
+async function joinRoom() {
+    const userName = document.getElementById('join-username-input').value.trim();
+    const joinCode = document.getElementById('join-code-input').value.trim();
+
+    if (userName && joinCode) {
+        try {
+            const response = await fetch('../backend/api/rooms.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'join', username: userName, join_code: joinCode })
+            });
+            const data = await response.json();
+            if (data.success) {
+                currentRoom = data.room_id;
+                showNotification(`Joined room successfully!`, 'success');
+                joinRoomModal.style.display = 'none';
+                fetchRoomQueue();
+                startQueuePolling();
+            } else {
+                showError(data.message || 'Failed to join room.');
+            }
+        } catch (error) {
+            console.error('Error joining room:', error);
+            showError('An error occurred while joining the room.');
+        }
+    } else {
+        showError('Please fill in all fields.');
+    }
+}
+
+// Fetch the queue for the current room
+async function fetchRoomQueue() {
+    if (!currentRoom) return;
+
+    try {
+        const response = await fetch(`../backend/api/queue.php?room_id=${currentRoom}`);
+        const queue = await response.json();
+        songQueue = queue;
+        renderQueue();
+        updateQueueCount();
+
+        // Auto-play if there's a song and nothing is playing
+        if (songQueue.length > 0 && !isPlaying) {
+            playCurrentSong();
+        }
+    } catch (error) {
+        console.error('Error fetching room queue:', error);
+    }
+}
+
+// Start polling the room queue
+let queueInterval;
+function startQueuePolling() {
+    stopQueuePolling(); // Stop any existing polling
+    if (currentRoom) {
+        queueInterval = setInterval(fetchRoomQueue, 5000); // Poll every 5 seconds
+    }
+}
+
+function stopQueuePolling() {
+    clearInterval(queueInterval);
+}
+
 
 // Fetch song list from API with pagination
 async function fetchSongList(page = 1, search = '') {
@@ -569,22 +575,28 @@ function showSongPreview(song) {
 }
 
 // Add song to queue
-function addSongToQueue(song) {
-    // Check if song is already in queue
-    if (songQueue.some(q => q.song_number === song.song_number)) {
-        showNotification(`${song.title} is already in the queue`, 'warning');
+async function addSongToQueue(song) {
+    if (!currentRoom) {
+        showError("You must join a room to add songs to the queue.");
         return;
     }
-    
-    songQueue.push(song);
-    updateQueueCount();
-    renderQueue();
-    showNotification(`Added "${song.title}" to queue`, 'success');
-    saveQueueState(); // Save after adding
-    
-    // Auto-play if this is the first song
-    if (songQueue.length === 1 && !isPlaying) {
-        playCurrentSong();
+
+    try {
+        const response = await fetch(`../backend/api/queue.php?room_id=${currentRoom}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ song_id: song.id })
+        });
+        const data = await response.json();
+        if (data.success) {
+            showNotification(`Added "${song.title}" to the room's queue`, 'success');
+            fetchRoomQueue();
+        } else {
+            showError(data.message || 'Failed to add song.');
+        }
+    } catch (error) {
+        console.error('Error adding song to queue:', error);
+        showError('An error occurred while adding the song.');
     }
 }
 
@@ -724,62 +736,55 @@ function renderQueue() {
     });
 }
 
-// Move song in queue
+// Move song in queue (This would require a more complex API, so we'll disable it for now)
+/*
 function moveInQueue(index, direction) {
     if (index + direction >= 0 && index + direction < songQueue.length) {
         [songQueue[index], songQueue[index + direction]] = [songQueue[index + direction], songQueue[index]];
         renderQueue();
-        saveQueueState(); // Save after moving
         showNotification('Queue updated', 'info');
     }
 }
+*/
 
-// Remove song from queue
+// Remove song from queue (Also requires a more complex API)
+/*
 function removeFromQueue(index) {
     if (index >= 0 && index < songQueue.length) {
         const removedSong = songQueue.splice(index, 1)[0];
         updateQueueCount();
         renderQueue();
-        saveQueueState(); // Save after removing
         showNotification(`Removed "${removedSong.title}" from queue`, 'info');
         
-        // If we removed the current playing song, play next
         if (index === 0 && isPlaying) {
             nextSong();
         }
     }
 }
+*/
 
-// Play specific song from queue
+// Play specific song from queue (Also requires a more complex API)
+/*
 function playFromQueue(index) {
     if (index > 0 && index < songQueue.length) {
         const [song] = songQueue.splice(index, 1);
         songQueue.unshift(song);
         updateQueueCount();
         renderQueue();
-        saveQueueState(); // Save after reordering
         playCurrentSong();
     }
 }
+*/
 
 // Play next song
-function nextSong() {
-    if (songQueue.length > 0) {
-        const finishedSong = songQueue.shift();
-        updateQueueCount();
-        
-        if (songQueue.length > 0) {
-            playCurrentSong();
-        } else {
-            player.reset();
-            isPlaying = false;
-            currentSongInfo.innerHTML = '<em>Select a song to begin</em>';
-            updatePlayerStatus('Queue finished', 'info');
-            showNotification('Queue finished', 'info');
-        }
-        
-        renderQueue();
-        saveQueueState(); // Save after moving to next song
+async function nextSong() {
+    if (!currentRoom) return;
+
+    try {
+        await fetch(`../backend/api/queue.php?room_id=${currentRoom}`, { method: 'DELETE' });
+        fetchRoomQueue(); // Fetch the updated queue
+    } catch (error) {
+        console.error('Error removing song from queue:', error);
     }
 }
 
@@ -912,24 +917,6 @@ pauseButton.addEventListener('click', () => {
     } else if (songQueue.length > 0) {
         player.play();
         updatePlayerStatus('Playing', 'playing');
-    }
-    saveQueueState(); // Save play/pause state
-});
-
-clearQueueButton.addEventListener('click', async () => {
-    if (songQueue.length > 0) {
-        if (confirm('Are you sure you want to clear the entire queue?')) {
-            const queueLength = songQueue.length;
-            songQueue = [];
-            updateQueueCount();
-            renderQueue();
-            player.reset();
-            isPlaying = false;
-            currentSongInfo.innerHTML = '<em>Select a song to begin</em>';
-            updatePlayerStatus('Queue cleared', 'info');
-            await clearSavedState(); // Clear saved state
-            showNotification(`Cleared ${queueLength} songs from queue`, 'info');
-        }
     }
 });
 
@@ -1128,6 +1115,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Then fetch songs
     await fetchSongList(1);
+
+    // Fetch and render rooms
+    await fetchAndRenderRooms();
+
+    // Room modal event listeners
+    createRoomBtn.addEventListener('click', () => {
+        createRoomModal.style.display = 'block';
+    });
+
+    submitCreateRoomBtn.addEventListener('click', createRoom);
+    submitJoinRoomBtn.addEventListener('click', joinRoom);
+
+    // Close modal listeners
+    document.querySelectorAll('.modal .close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            createRoomModal.style.display = 'none';
+            joinRoomModal.style.display = 'none';
+        });
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == createRoomModal || event.target == joinRoomModal) {
+            createRoomModal.style.display = 'none';
+            joinRoomModal.style.display = 'none';
+        }
+    });
 
     // Add scroll listener for infinite scrolling to the correct element
     const songListWrapper = songListElement.parentElement;

@@ -60,6 +60,35 @@ if ($conn->multi_query($sql_schema)) {
     }
 }
 
+// --- 3.5. Apply Migrations ---
+echo "<p>Attempting to apply migrations from <code>migrations.sql</code>...</p>";
+$sql_migrations = file_get_contents(__DIR__ . '/migrations.sql');
+if ($sql_migrations === false) {
+    die("<p style='color:red;'><strong>Error:</strong> Could not read <code>migrations.sql</code>.</p>");
+}
+// Clear any previous results before running a new multi_query
+while ($conn->more_results() && $conn->next_result()) {
+    // free stored result sets
+    if ($result = $conn->store_result()) {
+        $result->free();
+    }
+}
+if ($conn->multi_query($sql_migrations)) {
+    // Consume multi-query results
+    while ($conn->next_result()) {
+        if ($result = $conn->store_result()) {
+            $result->free();
+        }
+    }
+    echo "<p style='color:green;'>Migrations applied successfully.</p>";
+} else {
+    if (strpos($conn->error, "already exists") !== false) {
+        echo "<p style='color:orange;'>Migration tables already exist, skipping creation.</p>";
+    } else {
+         die("<p style='color:red;'><strong>Error applying migrations:</strong> " . $conn->error . "</p>");
+    }
+}
+
 
 // --- 4. Create Admin User ---
 echo "<p>Attempting to create admin user '<code>" . ADMIN_USERNAME . "</code>'...</p>";

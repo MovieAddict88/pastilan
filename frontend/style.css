@@ -64,6 +64,7 @@ body::before {
     grid-template-areas:
         "video video"
         "queue controls"
+        "rooms rooms"
         "songlist songlist";
     grid-template-columns: 1fr 1fr;
     grid-gap: 30px;
@@ -867,5 +868,133 @@ body::before {
     .empty-message {
         background: rgba(255,255,255,0.05);
         border-color: rgba(255,255,255,0.1);
+    }
+}
+
+/* Rooms Container */
+.rooms-container {
+    grid-area: rooms;
+    background: var(--background-light);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.rooms-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--accent-color);
+}
+
+.rooms-header h2 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rooms-header h2 i {
+    color: var(--accent-color);
+}
+
+#room-list {
+    list-style-type: none;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#room-list li {
+    padding: 16px;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 10px;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.room-info {
+    font-weight: 600;
+}
+
+.room-info span {
+    font-weight: normal;
+    color: var(--text-light);
+    margin-left: 10px;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 30px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from {opacity: 0; transform: scale(0.9);}
+    to {opacity: 1; transform: scale(1);}
+}
+
+.close-btn {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: var(--border-radius-sm);
+    font-size: 1rem;
+}
+
+@media (max-width: 1200px) {
+    .karaoke-container {
+        grid-template-areas:
+            "video"
+            "controls"
+            "queue"
+            "rooms"
+            "songlist";
+        grid-template-columns: 1fr;
     }
 }
