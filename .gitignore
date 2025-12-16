@@ -1,0 +1,3 @@
+server.log
+backend/api/room_handler_errors.log
+database/karaoke.db
