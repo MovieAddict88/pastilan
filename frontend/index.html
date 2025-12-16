@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Professional Karaoke Player | Video Streaming Platform</title>
+    <meta name="description" content="Professional karaoke player with YouTube integration, song queue management, and real-time controls">
+    <link href="https://vjs.zencdn.net/8.0.4/video-js.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <meta name="theme-color" content="#1a1b1c"/>
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+    <link rel="manifest" href="site.webmanifest">
+</head>
+<body>
+    <div class="karaoke-container">
+        <!-- Video Player Section -->
+        <div class="video-container">
+            <div class="now-playing">
+                <h2><i class="fas fa-play"></i> Now Playing</h2>
+                <div id="current-song-info">
+                    <em>Select a song to begin</em>
+                </div>
+            </div>
+            <video id="video-player" class="video-js vjs-default-skin vjs-big-play-centered" 
+                   controls preload="auto" width="640" height="360" 
+                   poster="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjM2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMWExYjFjIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJJbnRlciIgZm9udC1zaXplPSIyNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPktBUkFLT0UgUExBWUVSPC90ZXh0Pjx0ZXh0IHg9IjUwJSIgeT0iNjAlIiBmb250LWZhbWlseT0iSW50ZXIiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNiMmIyYjIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5TZWxlY3QgYSBzb25nIHRvIHN0YXJ0PC90ZXh0Pjwvc3ZnPg=="
+                   data-setup='{ "techOrder": ["youtube"], "sources": [{ "type": "video/youtube" }] }'>
+                <p class="vjs-no-js">
+                    To view this video please enable JavaScript, and consider upgrading to a
+                    web browser that <a href="https://videojs.com/html5-video-support/" target="_blank" rel="noopener noreferrer">supports HTML5 video</a>
+                </p>
+            </video>
+        </div>
+        
+        <!-- Song Queue Section -->
+        <div class="song-queue">
+            <div class="queue-header">
+                <h2><i class="fas fa-list-ol"></i> Queue <span id="queue-count">0</span></h2>
+                <button id="clear-queue" class="icon-btn" title="Clear Queue" aria-label="Clear all songs from queue">
+                    <i class="fas fa-trash"></i> Clear All
+                </button>
+            </div>
+            <ul id="queue-list">
+                <div class="empty-message">Queue is empty. Add songs to get started!</div>
+            </ul>
+        </div>
+        
+        <!-- Controls Section -->
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="song-number-input" 
+                       placeholder="Enter Song Number, Title, or Artist..."
+                       aria-label="Search for songs"
+                       autocomplete="off">
+                <button id="search-button" class="icon-btn" aria-label="Search songs">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </div>
+            
+            <div class="control-buttons">
+                <button id="play-button" class="control-btn primary" aria-label="Play selected song">
+                    <i class="fas fa-play"></i> Play Selected
+                </button>
+                <button id="next-button" class="control-btn" aria-label="Play next song">
+                    <i class="fas fa-forward"></i> Next Song
+                </button>
+                <button id="pause-button" class="control-btn" aria-label="Pause/Resume playback">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+            </div>
+            
+            <div class="volume-controls">
+                <button id="volume-down" class="icon-btn small" aria-label="Decrease volume">
+                    <i class="fas fa-volume-down"></i>
+                </button>
+                <button id="volume-up" class="icon-btn small" aria-label="Increase volume">
+                    <i class="fas fa-volume-up"></i>
+                </button>
+            </div>
+            
+            <div class="player-status">
+                <p>Status: <span id="player-status">Ready</span></p>
+                <p>Songs Loaded: <span id="song-count">0</span></p>
+            </div>
+        </div>
+        
+        <!-- Song List Section -->
+        <div class="song-list-container">
+            <div class="songlist-header">
+                <h2><i class="fas fa-music"></i> Available Songs</h2>
+                <input type="text" id="song-search" 
+                       placeholder="Filter songs by number, title, or artist..."
+                       aria-label="Filter songs list"
+                       autocomplete="off">
+            </div>
+            <div class="song-list-wrapper">
+                <ul id="song-list">
+                    <div class="empty-message loading">Loading songs...</div>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Video.js and YouTube plugin -->
+    <script src="https://vjs.zencdn.net/8.0.4/video.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@videojs/http-streaming@3.0.2/dist/videojs-http-streaming.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-youtube/3.0.1/Youtube.min.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
