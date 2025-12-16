@@ -14,21 +14,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['id']) && !empty($_POST
     $sql = "DELETE FROM songs WHERE id = ?";
 
     if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("i", $param_id);
-
-        $param_id = $id;
-
-        if ($stmt->execute()) {
+        if ($stmt->execute([$id])) {
             header("location: dashboard.php");
             exit();
         } else {
             echo "Oops! Something went wrong. Please try again later.";
         }
     }
-
-    $stmt->close();
 }
-
-$conn->close();
-
 ?>

@@ -1,12 +1,8 @@
 <?php
-define('DB_SERVER', 'sql100.infinityfree.com');
-define('DB_USERNAME', 'if0_40117326');
-define('DB_PASSWORD', 'qFteVhPBdhvkXyE');
-define('DB_NAME', 'if0_40117326_karaoke');
+$db_file = __DIR__ . '/../../database/karaoke.db';
+$conn = new PDO("sqlite:$db_file");
 
-$conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
-
-if($conn === false){
-    die("ERROR: Could not connect. " . $conn->connect_error);
+if(!$conn){
+    die("ERROR: Could not connect. " . $conn->lastErrorMsg());
 }
 ?>

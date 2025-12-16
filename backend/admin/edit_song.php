@@ -39,20 +39,12 @@ if (isset($_POST["id"]) && !empty($_POST["id"])) {
         $sql = "UPDATE songs SET title=?, artist=?, video_source=? WHERE id=?";
 
         if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("sssi", $param_title, $param_artist, $param_video_source, $param_id);
-
-            $param_title = $title;
-            $param_artist = $artist;
-            $param_video_source = $video_source;
-            $param_id = $id;
-
-            if ($stmt->execute()) {
+            if ($stmt->execute([$title, $artist, $video_source, $id])) {
                 header("location: dashboard.php");
                 exit();
             } else {
                 echo "Oops! Something went wrong. Please try again later.";
             }
-            $stmt->close();
         }
     }
 } else {
@@ -61,35 +53,27 @@ if (isset($_POST["id"]) && !empty($_POST["id"])) {
 
         $sql = "SELECT * FROM songs WHERE id = ?";
         if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("i", $param_id);
+            $stmt->execute([$id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            $param_id = $id;
-
-            if ($stmt->execute()) {
-                $result = $stmt->get_result();
-
-                if ($result->num_rows == 1) {
-                    $row = $result->fetch_array(MYSQLI_ASSOC);
-
-                    $title = $row["title"];
-                    $artist = $row["artist"];
-                    $video_source = $row["video_source"];
-                } else {
-                    header("location: error.php");
-                    exit();
-                }
+            if ($row) {
+                $title = $row["title"];
+                $artist = $row["artist"];
+                $video_source = $row["video_source"];
             } else {
-                echo "Oops! Something went wrong. Please try again later.";
+                // No need for a generic error page, just redirect to the dashboard.
+                header("location: dashboard.php");
+                exit();
             }
-            $stmt->close();
+        } else {
+            echo "Oops! Something went wrong. Please try again later.";
         }
     } else {
-        header("location: error.php");
+        // No need for a generic error page, just redirect to the dashboard.
+        header("location: dashboard.php");
         exit();
     }
 }
-
-$conn->close();
 ?>
 
 <!DOCTYPE html>

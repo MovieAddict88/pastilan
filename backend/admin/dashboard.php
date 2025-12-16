@@ -20,11 +20,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_song'])) {
         $song_number = rand(100000, 999999);
         $sql_check = "SELECT id FROM songs WHERE song_number = ?";
         $stmt_check = $conn->prepare($sql_check);
-        $stmt_check->bind_param("s", $song_number);
-        $stmt_check->execute();
-        $stmt_check->store_result();
-        $is_duplicate = $stmt_check->num_rows > 0;
-        $stmt_check->close();
+        $stmt_check->execute([$song_number]);
+        $is_duplicate = $stmt_check->fetchColumn() > 0;
     } while ($is_duplicate);
 
     if ($source_type === 'upload') {
@@ -44,9 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_song'])) {
     if (!empty($title) && !empty($artist) && !empty($video_source)) {
         $sql = "INSERT INTO songs (song_number, title, artist, source_type, video_source) VALUES (?, ?, ?, ?, ?)";
         if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("sssss", $song_number, $title, $artist, $source_type, $video_source);
-            $stmt->execute();
-            $stmt->close();
+            $stmt->execute([$song_number, $title, $artist, $source_type, $video_source]);
         }
     }
 }
@@ -54,12 +49,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_song'])) {
 // Fetch songs to display
 $songs = [];
 $sql = "SELECT id, song_number, title, artist, video_source FROM songs ORDER BY id DESC";
-if ($result = $conn->query($sql)) {
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $songs[] = $row;
-        }
-    }
+if ($stmt = $conn->query($sql)) {
+    $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 ?>

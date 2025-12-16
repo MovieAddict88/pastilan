@@ -12,41 +12,32 @@ $search = isset($_GET['search']) ? $_GET['search'] : '';
 
 // Get total number of songs
 $total_songs_sql = "SELECT COUNT(*) as total FROM songs";
+$params = [];
 if (!empty($search)) {
     $total_songs_sql .= " WHERE title LIKE ? OR artist LIKE ? OR song_number LIKE ?";
+    $search_param = "%" . $search . "%";
+    $params = [$search_param, $search_param, $search_param];
 }
 $stmt_total = $conn->prepare($total_songs_sql);
-if (!empty($search)) {
-    $search_param = "%" . $search . "%";
-    $stmt_total->bind_param("sss", $search_param, $search_param, $search_param);
-}
-$stmt_total->execute();
-$total_result = $stmt_total->get_result();
-$total_songs = $total_result->fetch_assoc()['total'];
+$stmt_total->execute($params);
+$total_songs = $stmt_total->fetchColumn();
 
 $songs = [];
 // Fetch a paginated list of songs
 $sql = "SELECT song_number, title, artist, video_source FROM songs";
+$params = [];
 if (!empty($search)) {
     $sql .= " WHERE title LIKE ? OR artist LIKE ? OR song_number LIKE ?";
+    $search_param = "%" . $search . "%";
+    $params = [$search_param, $search_param, $search_param];
 }
 $sql .= " ORDER BY CAST(song_number AS UNSIGNED) ASC, song_number ASC LIMIT ? OFFSET ?";
+$params[] = $limit;
+$params[] = $offset;
 
 $stmt = $conn->prepare($sql);
-if (!empty($search)) {
-    $search_param = "%" . $search . "%";
-    $stmt->bind_param("sssii", $search_param, $search_param, $search_param, $limit, $offset);
-} else {
-    $stmt->bind_param("ii", $limit, $offset);
-}
-$stmt->execute();
-$result = $stmt->get_result();
-
-if($result->num_rows > 0){
-    while($row = $result->fetch_assoc()){
-        $songs[] = $row;
-    }
-}
+$stmt->execute($params);
+$songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Prepare the response
 $response = [
@@ -57,8 +48,4 @@ $response = [
 ];
 
 echo json_encode($response);
-
-$stmt->close();
-$stmt_total->close();
-$conn->close();
 ?>
