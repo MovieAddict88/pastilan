@@ -1,98 +1,60 @@
 <?php
-// IMPORTANT: This file should be removed after installation.
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Database credentials - Adjust if necessary
-define('DB_SERVER', 'sql100.infinityfree.com');
-define('DB_USERNAME', 'if0_40117326');
-define('DB_PASSWORD', 'qFteVhPBdhvkXyE');
-define('DB_NAME', 'if0_40117326_karaoke');
-
-
-// Admin user credentials - Change these!
-define('ADMIN_USERNAME', 'admin');
-define('ADMIN_PASSWORD', 'password123');
-
+// database/install.php
 
 echo "<h1>Karaoke System Installation</h1>";
 
-// --- 1. Connect to MySQL Server ---
-echo "<p>Attempting to connect to MySQL server...</p>";
-$conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD);
-if ($conn->connect_error) {
-    die("<p style='color:red;'><strong>Connection failed:</strong> " . $conn->connect_error . "</p>");
+// Include the database configuration, but handle errors gracefully
+try {
+    // We need to define the constants here because db.php will be included
+    // and expects them to exist. However, we will create our own connection
+    // for the installation process.
+    define('DB_SERVER', 'YOUR_DATABASE_HOST');
+    define('DB_USERNAME', 'YOUR_DATABASE_USERNAME');
+    define('DB_PASSWORD', 'YOUR_DATABASE_PASSWORD');
+    define('DB_NAME', 'YOUR_DATABASE_NAME');
+
+    require_once '../backend/includes/db.php';
+    echo "<p>Database configuration loaded.</p>";
+} catch (Exception $e) {
+    die("<p style='color:red;'>Error loading database configuration: " . $e->getMessage() . "</p>");
 }
-echo "<p style='color:green;'>Connected successfully to MySQL server.</p>";
 
+try {
+    echo "<p>Attempting to connect to the database server...</p>";
+    // Use the DSN from db.php to connect
+    $dsn = "mysql:host=" . DB_SERVER . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+    $conn = new PDO($dsn, DB_USERNAME, DB_PASSWORD);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    echo "<p style='color:green;'>Successfully connected to the database.</p>";
 
-// --- 2. Create Database ---
-echo "<p>Attempting to create database '<code>" . DB_NAME . "</code>'...</p>";
-$sql_create_db = "CREATE DATABASE IF NOT EXISTS " . DB_NAME;
-if ($conn->query($sql_create_db) === TRUE) {
-    echo "<p style='color:green;'>Database '<code>" . DB_NAME . "</code>' created or already exists.</p>";
-} else {
-    die("<p style='color:red;'><strong>Error creating database:</strong> " . $conn->error . "</p>");
-}
-$conn->select_db(DB_NAME);
-
-
-// --- 3. Create Tables from schema.sql ---
-echo "<p>Attempting to create tables from <code>schema.sql</code>...</p>";
-$sql_schema = file_get_contents(__DIR__ . '/schema.sql');
-if ($sql_schema === false) {
-    die("<p style='color:red;'><strong>Error:</strong> Could not read <code>schema.sql</code>.</p>");
-}
-if ($conn->multi_query($sql_schema)) {
-    // Consume multi-query results
-    while ($conn->next_result()) {
-        if ($result = $conn->store_result()) {
-            $result->free();
-        }
+    echo "<p>Reading schema file...</p>";
+    $schema_path = __DIR__ . '/schema.sql';
+    $schema = file_get_contents($schema_path);
+    if ($schema === false) {
+        throw new Exception("Could not read schema.sql file.");
     }
-    echo "<p style='color:green;'>Tables created successfully.</p>";
-} else {
-    // Don't die here, as tables might already exist. Check specifically for that.
-     if (strpos($conn->error, "already exists") !== false) {
-        echo "<p style='color:orange;'>Tables already exist, skipping creation.</p>";
-    } else {
-        die("<p style='color:red;'><strong>Error creating tables:</strong> " . $conn->error . "</p>");
-    }
+    echo "<p>Schema file read successfully.</p>";
+
+    echo "<p>Executing schema...</p>";
+    $conn->exec($schema);
+    echo "<p style='color:green;'>Database tables created successfully.</p>";
+
+    echo "<p>Creating default admin user...</p>";
+    $admin_user = 'admin';
+    $admin_pass = 'password'; // Default password
+    $hashed_pass = password_hash($admin_pass, PASSWORD_DEFAULT);
+
+    $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (:username, :password) ON DUPLICATE KEY UPDATE password = :password");
+    $stmt->execute([':username' => $admin_user, ':password' => $hashed_pass]);
+    echo "<p style='color:green;'>Default admin user created successfully.</p>";
+    echo "<p style='color:orange; font-weight:bold;'>IMPORTANT: The default login is username 'admin' and password 'password'. Please change this password immediately after logging in.</p>";
+
+    echo "<h2>Installation Complete!</h2>";
+    echo "<p>You can now use the application.</p>";
+
+} catch (PDOException $e) {
+    echo "<p style='color:red;'>Installation failed: " . $e->getMessage() . "</p>";
+} catch (Exception $e) {
+    echo "<p style='color:red;'>An error occurred: " . $e->getMessage() . "</p>";
 }
-
-
-// --- 4. Create Admin User ---
-echo "<p>Attempting to create admin user '<code>" . ADMIN_USERNAME . "</code>'...</p>";
-$username = ADMIN_USERNAME;
-$password_hash = password_hash(ADMIN_PASSWORD, PASSWORD_DEFAULT);
-
-// Use a prepared statement to prevent SQL injection and handle existing users
-$stmt_check = $conn->prepare("SELECT id FROM users WHERE username = ?");
-$stmt_check->bind_param("s", $username);
-$stmt_check->execute();
-$stmt_check->store_result();
-
-if ($stmt_check->num_rows > 0) {
-    echo "<p style='color:orange;'>Admin user '<code>" . $username . "</code>' already exists.</p>";
-} else {
-    $stmt_insert = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
-    $stmt_insert->bind_param("ss", $username, $password_hash);
-    if ($stmt_insert->execute()) {
-        echo "<p style='color:green;'>Admin user '<code>" . $username . "</code>' created successfully.</p>";
-        echo "<p><strong>Username:</strong> " . ADMIN_USERNAME . "</p>";
-        echo "<p><strong>Password:</strong> " . ADMIN_PASSWORD . " (Please change this after logging in!)</p>";
-    } else {
-        echo "<p style='color:red;'><strong>Error creating admin user:</strong> " . $stmt_insert->error . "</p>";
-    }
-    $stmt_insert->close();
-}
-$stmt_check->close();
-
-
-// --- 5. Finalization ---
-echo "<h2>Installation Complete!</h2>";
-echo "<p style='color:red; font-weight:bold;'>IMPORTANT: Please delete this '<code>install.php</code>' file from your server for security reasons.</p>";
-echo "<a href='../backend/admin/'>Go to Admin Login</a>";
-
-$conn->close();
 ?>

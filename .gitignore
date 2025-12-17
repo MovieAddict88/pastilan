@@ -1,0 +1,14 @@
+# Log files
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Vendor directories
+vendor/
+node_modules/
+
+# Environment files
+.env

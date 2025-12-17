@@ -7,11 +7,6 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- You should insert a default admin user.
--- For example, to create a user 'admin' with password 'password' (hashed):
--- INSERT INTO `users` (username, password) VALUES ('admin', '$2y$10$w4I.5iN.d8Y2/3h9e.fGJO/f.U.z.f.sD.E.fGJO/f.U.z.f.sD');
--- NOTE: The hash is just an example, you should generate a secure one.
-
 CREATE TABLE IF NOT EXISTS `songs` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `song_number` varchar(6) NOT NULL,
@@ -22,4 +17,24 @@ CREATE TABLE IF NOT EXISTS `songs` (
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `song_number` (`song_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `rooms` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `code` varchar(8) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `room_members` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_id` int(11) NOT NULL,
+  `username` varchar(255) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `room_id` (`room_id`),
+  CONSTRAINT `room_members_ibfk_1` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

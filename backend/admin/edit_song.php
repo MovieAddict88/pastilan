@@ -36,15 +36,14 @@ if (isset($_POST["id"]) && !empty($_POST["id"])) {
     }
 
     if (empty($title_err) && empty($artist_err) && empty($video_source_err)) {
-        $sql = "UPDATE songs SET title=?, artist=?, video_source=? WHERE id=?";
+        $sql = "UPDATE songs SET title = :title, artist = :artist, video_source = :video_source WHERE id = :id";
 
-        if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("sssi", $param_title, $param_artist, $param_video_source, $param_id);
-
-            $param_title = $title;
-            $param_artist = $artist;
-            $param_video_source = $video_source;
-            $param_id = $id;
+        try {
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':title', $title, PDO::PARAM_STR);
+            $stmt->bindParam(':artist', $artist, PDO::PARAM_STR);
+            $stmt->bindParam(':video_source', $video_source, PDO::PARAM_STR);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
 
             if ($stmt->execute()) {
                 header("location: dashboard.php");
@@ -52,25 +51,21 @@ if (isset($_POST["id"]) && !empty($_POST["id"])) {
             } else {
                 echo "Oops! Something went wrong. Please try again later.";
             }
-            $stmt->close();
+        } catch (PDOException $e) {
+            echo "Error: " . $e->getMessage();
         }
+        unset($stmt);
     }
 } else {
     if (isset($_GET["id"]) && !empty(trim($_GET["id"]))) {
         $id =  trim($_GET["id"]);
-
-        $sql = "SELECT * FROM songs WHERE id = ?";
-        if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("i", $param_id);
-
-            $param_id = $id;
-
+        $sql = "SELECT * FROM songs WHERE id = :id";
+        try {
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
             if ($stmt->execute()) {
-                $result = $stmt->get_result();
-
-                if ($result->num_rows == 1) {
-                    $row = $result->fetch_array(MYSQLI_ASSOC);
-
+                if ($stmt->rowCount() == 1) {
+                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
                     $title = $row["title"];
                     $artist = $row["artist"];
                     $video_source = $row["video_source"];
@@ -81,15 +76,16 @@ if (isset($_POST["id"]) && !empty($_POST["id"])) {
             } else {
                 echo "Oops! Something went wrong. Please try again later.";
             }
-            $stmt->close();
+        } catch (PDOException $e) {
+            echo "Error: " . $e->getMessage();
         }
+        unset($stmt);
     } else {
         header("location: error.php");
         exit();
     }
 }
-
-$conn->close();
+unset($conn);
 ?>
 
 <!DOCTYPE html>
