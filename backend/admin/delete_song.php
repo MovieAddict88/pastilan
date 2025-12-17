@@ -11,12 +11,11 @@ require_once "../includes/db.php";
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['id']) && !empty($_POST['id'])) {
     $id = trim($_POST['id']);
 
-    $sql = "DELETE FROM songs WHERE id = ?";
+    $sql = "DELETE FROM songs WHERE id = :id";
 
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("i", $param_id);
-
-        $param_id = $id;
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
 
         if ($stmt->execute()) {
             header("location: dashboard.php");
@@ -24,11 +23,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['id']) && !empty($_POST
         } else {
             echo "Oops! Something went wrong. Please try again later.";
         }
+    } catch (PDOException $e) {
+        echo "Error: " . $e->getMessage();
     }
-
-    $stmt->close();
+    unset($stmt);
 }
 
-$conn->close();
-
+unset($conn);
 ?>

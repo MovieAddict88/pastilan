@@ -2,7 +2,6 @@
 session_start();
 header('Content-Type: application/json');
 
-// Check if the user is logged in
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     echo json_encode(['success' => false, 'message' => 'User not authenticated.']);
     exit;
@@ -10,7 +9,6 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
 
 require_once "../includes/db.php";
 
-// Main logic to handle song addition
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $title = isset($_POST['title']) ? trim($_POST['title']) : '';
     $artist = isset($_POST['artist']) ? trim($_POST['artist']) : '';
@@ -21,50 +19,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    // Check for duplicate song based on video link
-    $sql_check_duplicate = "SELECT id FROM songs WHERE video_source = ?";
-    if ($stmt_check = $conn->prepare($sql_check_duplicate)) {
-        $stmt_check->bind_param("s", $video_link);
+    try {
+        $sql_check_duplicate = "SELECT id FROM songs WHERE video_source = :video_source";
+        $stmt_check = $conn->prepare($sql_check_duplicate);
+        $stmt_check->bindParam(':video_source', $video_link, PDO::PARAM_STR);
         $stmt_check->execute();
-        $stmt_check->store_result();
-        if ($stmt_check->num_rows > 0) {
+        if ($stmt_check->rowCount() > 0) {
             echo json_encode(['success' => false, 'message' => 'This song already exists in the database.']);
             exit;
         }
-        $stmt_check->close();
-    }
 
-    // Generate a unique song number
-    do {
-        $song_number = rand(100000, 999999);
-        $sql_check = "SELECT id FROM songs WHERE song_number = ?";
-        if ($stmt_check = $conn->prepare($sql_check)) {
-            $stmt_check->bind_param("s", $song_number);
+        do {
+            $song_number = rand(100000, 999999);
+            $sql_check = "SELECT id FROM songs WHERE song_number = :song_number";
+            $stmt_check = $conn->prepare($sql_check);
+            $stmt_check->bindParam(':song_number', $song_number, PDO::PARAM_STR);
             $stmt_check->execute();
-            $stmt_check->store_result();
-            $is_duplicate = $stmt_check->num_rows > 0;
-            $stmt_check->close();
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Database error (check song number).']);
-            exit;
-        }
-    } while ($is_duplicate);
+            $is_duplicate = $stmt_check->rowCount() > 0;
+        } while ($is_duplicate);
 
-    // Insert the new song
-    $source_type = 'link'; // Since we're adding a YouTube link
-    $sql_insert = "INSERT INTO songs (song_number, title, artist, source_type, video_source) VALUES (?, ?, ?, ?, ?)";
-    if ($stmt_insert = $conn->prepare($sql_insert)) {
-        $stmt_insert->bind_param("sssss", $song_number, $title, $artist, $source_type, $video_link);
+        $source_type = 'link';
+        $sql_insert = "INSERT INTO songs (song_number, title, artist, source_type, video_source) VALUES (:song_number, :title, :artist, :source_type, :video_source)";
+        $stmt_insert = $conn->prepare($sql_insert);
+        $stmt_insert->bindParam(':song_number', $song_number, PDO::PARAM_STR);
+        $stmt_insert->bindParam(':title', $title, PDO::PARAM_STR);
+        $stmt_insert->bindParam(':artist', $artist, PDO::PARAM_STR);
+        $stmt_insert->bindParam(':source_type', $source_type, PDO::PARAM_STR);
+        $stmt_insert->bindParam(':video_source', $video_link, PDO::PARAM_STR);
+
         if ($stmt_insert->execute()) {
             echo json_encode(['success' => true, 'message' => 'Song added successfully!']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to add the song.']);
         }
-        $stmt_insert->close();
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Database error (prepare insert).']);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
     }
-    $conn->close();
+    unset($conn);
 } else {
     echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
 }

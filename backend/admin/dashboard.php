@@ -1,67 +1,68 @@
 <?php
 session_start();
 
-if(!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true){
+if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     header("location: index.php");
     exit;
 }
 
 require_once "../includes/db.php";
 
-// Song submission logic
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_song'])) {
     $title = trim($_POST['title']);
     $artist = trim($_POST['artist']);
     $source_type = trim($_POST['source_type']);
     $video_source = '';
 
-    // Generate a unique song number
-    do {
-        $song_number = rand(100000, 999999);
-        $sql_check = "SELECT id FROM songs WHERE song_number = ?";
-        $stmt_check = $conn->prepare($sql_check);
-        $stmt_check->bind_param("s", $song_number);
-        $stmt_check->execute();
-        $stmt_check->store_result();
-        $is_duplicate = $stmt_check->num_rows > 0;
-        $stmt_check->close();
-    } while ($is_duplicate);
+    try {
+        do {
+            $song_number = rand(100000, 999999);
+            $sql_check = "SELECT id FROM songs WHERE song_number = :song_number";
+            $stmt_check = $conn->prepare($sql_check);
+            $stmt_check->bindParam(':song_number', $song_number, PDO::PARAM_STR);
+            $stmt_check->execute();
+            $is_duplicate = $stmt_check->rowCount() > 0;
+        } while ($is_duplicate);
 
-    if ($source_type === 'upload') {
-        if (isset($_FILES["video_file"]) && $_FILES["video_file"]["error"] == 0) {
-            $target_dir = "../uploads/";
-            $target_file = $target_dir . basename($_FILES["video_file"]["name"]);
-            if (move_uploaded_file($_FILES["video_file"]["tmp_name"], $target_file)) {
-                $video_source = 'uploads/' . basename($_FILES["video_file"]["name"]);
-            } else {
-                echo "Sorry, there was an error uploading your file.";
+        if ($source_type === 'upload') {
+            if (isset($_FILES["video_file"]) && $_FILES["video_file"]["error"] == 0) {
+                $target_dir = "../uploads/";
+                $target_file = $target_dir . basename($_FILES["video_file"]["name"]);
+                if (move_uploaded_file($_FILES["video_file"]["tmp_name"], $target_file)) {
+                    $video_source = 'uploads/' . basename($_FILES["video_file"]["name"]);
+                } else {
+                    echo "Sorry, there was an error uploading your file.";
+                }
             }
+        } else {
+            $video_source = trim($_POST['video_link']);
         }
-    } else {
-        $video_source = trim($_POST['video_link']);
-    }
 
-    if (!empty($title) && !empty($artist) && !empty($video_source)) {
-        $sql = "INSERT INTO songs (song_number, title, artist, source_type, video_source) VALUES (?, ?, ?, ?, ?)";
-        if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("sssss", $song_number, $title, $artist, $source_type, $video_source);
+        if (!empty($title) && !empty($artist) && !empty($video_source)) {
+            $sql = "INSERT INTO songs (song_number, title, artist, source_type, video_source) VALUES (:song_number, :title, :artist, :source_type, :video_source)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':song_number', $song_number, PDO::PARAM_STR);
+            $stmt->bindParam(':title', $title, PDO::PARAM_STR);
+            $stmt->bindParam(':artist', $artist, PDO::PARAM_STR);
+            $stmt->bindParam(':source_type', $source_type, PDO::PARAM_STR);
+            $stmt->bindParam(':video_source', $video_source, PDO::PARAM_STR);
             $stmt->execute();
-            $stmt->close();
         }
+    } catch (PDOException $e) {
+        echo "Error: " . $e->getMessage();
     }
 }
 
-// Fetch songs to display
 $songs = [];
-$sql = "SELECT id, song_number, title, artist, video_source FROM songs ORDER BY id DESC";
-if ($result = $conn->query($sql)) {
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $songs[] = $row;
-        }
-    }
+try {
+    $sql = "SELECT id, song_number, title, artist, video_source FROM songs ORDER BY id DESC";
+    $result = $conn->query($sql);
+    $songs = $result->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    echo "Error: " . $e->getMessage();
 }
 
+unset($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
