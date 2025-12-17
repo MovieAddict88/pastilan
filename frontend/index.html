@@ -87,6 +87,19 @@
                 <p>Songs Loaded: <span id="song-count">0</span></p>
             </div>
         </div>
+
+        <!-- Rooms Section -->
+        <div class="rooms-container">
+            <div class="rooms-header">
+                <h2><i class="fas fa-door-open"></i> Rooms</h2>
+                <button id="create-room-btn" class="control-btn primary">
+                    <i class="fas fa-plus"></i> Create Room
+                </button>
+            </div>
+            <ul id="room-list">
+                <div class="empty-message">No rooms available. Create one to get started!</div>
+            </ul>
+        </div>
         
         <!-- Song List Section -->
         <div class="song-list-container">
@@ -111,5 +124,32 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-youtube/3.0.1/Youtube.min.js"></script>
     
     <script src="script.js"></script>
+
+    <!-- Create Room Modal -->
+    <div id="create-room-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Create a New Room</h2>
+            <form id="create-room-form">
+                <input type="text" id="room-name-input" placeholder="Room Name" required>
+                <input type="text" id="username-input" placeholder="Your Name" required>
+                <input type="password" id="password-input" placeholder="Password" required>
+                <button type="submit" class="control-btn primary">Create</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Join Room Modal -->
+    <div id="join-room-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Join Room</h2>
+            <form id="join-room-form">
+                <input type="text" id="join-username-input" placeholder="Your Name" required>
+                <input type="text" id="room-code-input" placeholder="8-Digit Code" required>
+                <button type="submit" class="control-btn primary">Join</button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>

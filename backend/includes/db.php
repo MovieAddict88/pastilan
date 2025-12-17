@@ -1,12 +1,21 @@
 <?php
-define('DB_SERVER', 'sql100.infinityfree.com');
-define('DB_USERNAME', 'if0_40117326');
-define('DB_PASSWORD', 'qFteVhPBdhvkXyE');
-define('DB_NAME', 'if0_40117326_karaoke');
+// backend/includes/db.php
 
-$conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+// Define the path to the SQLite database file
+define('DB_PATH', __DIR__ . '/../../database/karaoke.db');
 
-if($conn === false){
-    die("ERROR: Could not connect. " . $conn->connect_error);
+try {
+    // Create a new PDO instance
+    $conn = new PDO('sqlite:' . DB_PATH);
+
+    // Set the PDO error mode to exception
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+} catch (PDOException $e) {
+    // If connection fails, die and show error
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    exit();
 }
 ?>

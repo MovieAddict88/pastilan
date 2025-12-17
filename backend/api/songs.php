@@ -10,55 +10,57 @@ $offset = ($page - 1) * $limit;
 // Get search term
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
-// Get total number of songs
-$total_songs_sql = "SELECT COUNT(*) as total FROM songs";
-if (!empty($search)) {
-    $total_songs_sql .= " WHERE title LIKE ? OR artist LIKE ? OR song_number LIKE ?";
-}
-$stmt_total = $conn->prepare($total_songs_sql);
-if (!empty($search)) {
-    $search_param = "%" . $search . "%";
-    $stmt_total->bind_param("sss", $search_param, $search_param, $search_param);
-}
-$stmt_total->execute();
-$total_result = $stmt_total->get_result();
-$total_songs = $total_result->fetch_assoc()['total'];
-
-$songs = [];
-// Fetch a paginated list of songs
-$sql = "SELECT song_number, title, artist, video_source FROM songs";
-if (!empty($search)) {
-    $sql .= " WHERE title LIKE ? OR artist LIKE ? OR song_number LIKE ?";
-}
-$sql .= " ORDER BY CAST(song_number AS UNSIGNED) ASC, song_number ASC LIMIT ? OFFSET ?";
-
-$stmt = $conn->prepare($sql);
-if (!empty($search)) {
-    $search_param = "%" . $search . "%";
-    $stmt->bind_param("sssii", $search_param, $search_param, $search_param, $limit, $offset);
-} else {
-    $stmt->bind_param("ii", $limit, $offset);
-}
-$stmt->execute();
-$result = $stmt->get_result();
-
-if($result->num_rows > 0){
-    while($row = $result->fetch_assoc()){
-        $songs[] = $row;
+try {
+    // Get total number of songs
+    $total_songs_sql = "SELECT COUNT(*) as total FROM songs";
+    $params_total = [];
+    if (!empty($search)) {
+        $total_songs_sql .= " WHERE title LIKE :search OR artist LIKE :search OR song_number LIKE :search";
+        $params_total[':search'] = "%" . $search . "%";
     }
+    $stmt_total = $conn->prepare($total_songs_sql);
+    $stmt_total->execute($params_total);
+    $total_songs_row = $stmt_total->fetch(PDO::FETCH_ASSOC);
+    $total_songs = $total_songs_row ? $total_songs_row['total'] : 0;
+
+    // Fetch a paginated list of songs
+    $sql = "SELECT song_number, title, artist, video_source FROM songs";
+    $params = [];
+    if (!empty($search)) {
+        $sql .= " WHERE title LIKE :search OR artist LIKE :search OR song_number LIKE :search";
+        $params[':search'] = "%" . $search . "%";
+    }
+    $sql .= " ORDER BY CAST(song_number AS INTEGER) ASC, song_number ASC LIMIT :limit OFFSET :offset";
+
+    $stmt = $conn->prepare($sql);
+
+    // Bind parameters
+    foreach ($params as $key => &$val) {
+        $stmt->bindParam($key, $val);
+    }
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+
+    $stmt->execute();
+    $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Prepare the response
+    $response = [
+        'total' => (int)$total_songs,
+        'page' => $page,
+        'limit' => $limit,
+        'songs' => $songs ?: []
+    ];
+
+    echo json_encode($response);
+
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database query failed: ' . $e->getMessage()]);
+} finally {
+    // Close connection
+    $stmt = null;
+    $stmt_total = null;
+    $conn = null;
 }
-
-// Prepare the response
-$response = [
-    'total' => (int)$total_songs,
-    'page' => $page,
-    'limit' => $limit,
-    'songs' => $songs
-];
-
-echo json_encode($response);
-
-$stmt->close();
-$stmt_total->close();
-$conn->close();
 ?>

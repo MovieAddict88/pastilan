@@ -29,6 +29,14 @@ const playerStatus = document.getElementById('player-status');
 const queueCount = document.getElementById('queue-count');
 const songCount = document.getElementById('song-count');
 
+// Room elements
+const createRoomBtn = document.getElementById('create-room-btn');
+const createRoomModal = document.getElementById('create-room-modal');
+const joinRoomModal = document.getElementById('join-room-modal');
+const createRoomForm = document.getElementById('create-room-form');
+const joinRoomForm = document.getElementById('join-room-form');
+const roomListElement = document.getElementById('room-list');
+
 // Initialize Video.js player with YouTube plugin
 const player = videojs('video-player', {
     controls: true,
@@ -1173,3 +1181,91 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
     showNotification('You are offline. Some features may be unavailable.', 'warning');
 });
+
+// Room functionality
+createRoomBtn.addEventListener('click', () => {
+    createRoomModal.style.display = 'block';
+});
+
+createRoomModal.querySelector('.close-btn').addEventListener('click', () => {
+    createRoomModal.style.display = 'none';
+});
+
+joinRoomModal.querySelector('.close-btn').addEventListener('click', () => {
+    joinRoomModal.style.display = 'none';
+});
+
+createRoomForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const roomName = document.getElementById('room-name-input').value;
+    const username = document.getElementById('username-input').value;
+    const password = document.getElementById('password-input').value;
+
+    const response = await fetch('../backend/api/rooms.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', room_name: roomName, username, password })
+    });
+
+    const data = await response.json();
+    if (data.success) {
+        showNotification(`Room created! Code: ${data.code}`, 'success');
+        createRoomModal.style.display = 'none';
+        fetchRooms();
+    } else {
+        showError(data.error || 'Failed to create room');
+    }
+});
+
+joinRoomForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('join-username-input').value;
+    const code = document.getElementById('room-code-input').value;
+
+    const response = await fetch('../backend/api/rooms.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', username, code })
+    });
+
+    const data = await response.json();
+    if (data.success) {
+        showNotification('Joined room successfully!', 'success');
+        joinRoomModal.style.display = 'none';
+        fetchRooms();
+    } else {
+        showError(data.error || 'Failed to join room');
+    }
+});
+
+async function fetchRooms() {
+    const response = await fetch('../backend/api/rooms.php');
+    const rooms = await response.json();
+    renderRooms(rooms);
+}
+
+function renderRooms(rooms) {
+    roomListElement.innerHTML = '';
+    if (rooms.length === 0) {
+        roomListElement.innerHTML = '<div class="empty-message">No rooms available. Create one to get started!</div>';
+        return;
+    }
+
+    rooms.forEach(room => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div>
+                <strong>${room.name}</strong>
+                <span>${room.member_count} member(s)</span>
+            </div>
+            <button class="control-btn join-room-btn" data-room-id="${room.id}">Join</button>
+        `;
+        li.querySelector('.join-room-btn').addEventListener('click', () => {
+            joinRoomModal.style.display = 'block';
+        });
+        roomListElement.appendChild(li);
+    });
+}
+
+// Initial fetch of rooms
+fetchRooms();
