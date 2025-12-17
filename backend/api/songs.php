@@ -30,16 +30,16 @@ try {
         $sql .= " WHERE title LIKE :search OR artist LIKE :search OR song_number LIKE :search";
         $params[':search'] = "%" . $search . "%";
     }
-    $sql .= " ORDER BY CAST(song_number AS INTEGER) ASC, song_number ASC LIMIT :limit OFFSET :offset";
+    $sql .= " ORDER BY CAST(song_number AS UNSIGNED) ASC, song_number ASC LIMIT :limit OFFSET :offset";
 
     $stmt = $conn->prepare($sql);
 
     // Bind parameters
-    foreach ($params as $key => &$val) {
-        $stmt->bindParam($key, $val);
+    if (!empty($search)) {
+        $stmt->bindParam(':search', $params[':search']);
     }
     $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', offset, PDO::PARAM_INT);
 
     $stmt->execute();
     $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
