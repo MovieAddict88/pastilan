@@ -1,6 +1,6 @@
 <?php
 header("Content-Type: application/json; charset=UTF-8");
-require_once "../includes/db.php";
+require_once __DIR__ . "/../includes/db.php";
 
 // Set pagination parameters
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -39,7 +39,7 @@ try {
         $stmt->bindParam(':search', $params[':search']);
     }
     $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindParam(':offset', offset, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
 
     $stmt->execute();
     $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);

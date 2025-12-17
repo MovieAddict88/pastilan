@@ -515,6 +515,7 @@ function populateSongList(filter = '') {
         
         groupedSongs[letter].forEach(song => {
             const li = document.createElement('li');
+            li.className = 'song-item';
             li.innerHTML = `
                 <div>
                     <span class="song-number">${song.song_number}</span>

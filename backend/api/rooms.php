@@ -1,7 +1,7 @@
 <?php
 // backend/api/rooms.php
 header("Content-Type: application/json; charset=UTF-8");
-require_once "../includes/db.php";
+require_once __DIR__ . "/../includes/db.php";
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -71,12 +71,12 @@ function create_room($data) {
     try {
         $conn->beginTransaction();
 
-        $stmt = $conn->prepare("INSERT INTO rooms (name, password, code) VALUES (?, ?, ?)");
-        $stmt->execute([$room_name, $hashed_password, $code]);
+        $stmt = $conn->prepare("INSERT INTO rooms (name, password, code) VALUES (:name, :password, :code)");
+        $stmt->execute([':name' => $room_name, ':password' => $hashed_password, ':code' => $code]);
         $room_id = $conn->lastInsertId();
 
-        $stmt = $conn->prepare("INSERT INTO room_members (room_id, username) VALUES (?, ?)");
-        $stmt->execute([$room_id, $username]);
+        $stmt = $conn->prepare("INSERT INTO room_members (room_id, username) VALUES (:room_id, :username)");
+        $stmt->execute([':room_id' => $room_id, ':username' => $username]);
 
         $conn->commit();
         echo json_encode(['success' => true, 'code' => $code]);
@@ -100,8 +100,8 @@ function join_room($data) {
     $code = $data['code'];
 
     try {
-        $stmt = $conn->prepare("SELECT id FROM rooms WHERE code = ?");
-        $stmt->execute([$code]);
+        $stmt = $conn->prepare("SELECT id FROM rooms WHERE code = :code");
+        $stmt->execute([':code' => $code]);
         $room = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$room) {
@@ -112,8 +112,8 @@ function join_room($data) {
 
         $room_id = $room['id'];
 
-        $stmt = $conn->prepare("INSERT INTO room_members (room_id, username) VALUES (?, ?)");
-        $stmt->execute([$room_id, $username]);
+        $stmt = $conn->prepare("INSERT INTO room_members (room_id, username) VALUES (:room_id, :username)");
+        $stmt->execute([':room_id' => $room_id, ':username' => $username]);
 
         echo json_encode(['success' => true]);
     } catch (PDOException $e) {
